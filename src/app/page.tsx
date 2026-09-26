@@ -14,6 +14,7 @@ import AdminPortal from '@/components/AdminPortal';
 import TaskKanban from '@/components/TaskKanban';
 import VolunteerDirectory from '@/components/VolunteerDirectory';
 import TransparencyLedger from '@/components/TransparencyLedger';
+import QuickStartNavigation from '@/components/QuickStartNavigation';
 import { Campaign, Volunteer, Task, Donation, PlatformStats, User } from '@/lib/types';
 import { 
   Flame, 
@@ -24,11 +25,10 @@ import {
   Search, 
   Filter, 
   ArrowRight, 
-  ShieldAlert, 
   Compass,
   RefreshCw,
-  BookOpen,
-  CreditCard
+  CreditCard,
+  Sparkles
 } from 'lucide-react';
 
 export default function Home() {
@@ -40,9 +40,7 @@ export default function Home() {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
 
   // Global Emergency Broadcast Alert
-  const [emergencyAlert, setEmergencyAlert] = useState<string>(
-    'FLASH UPDATE: Monsoon High Alert in Lowland River Basin. Emergency water kits and logistics teams mobilizing.'
-  );
+  const [emergencyAlert, setEmergencyAlert] = useState<string>('');
 
   // Data States
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
@@ -72,7 +70,6 @@ export default function Home() {
       if (stored) {
         const parsed = JSON.parse(stored);
         setCurrentUser(parsed);
-        if (parsed.role === 'admin') setViewMode('admin');
       }
     } catch {
       // ignore
@@ -99,6 +96,23 @@ export default function Home() {
       // ignore
     }
     setViewMode('public');
+  };
+
+  // 1-Click Auto Login for Demo Account
+  const handleAutoLoginDemo = async () => {
+    try {
+      const res = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: 'demo@reliefgrid.org', password: 'demo123' }),
+      });
+      const data = await res.json();
+      if (res.ok && data.user) {
+        handleAuthSuccess(data.user);
+      }
+    } catch {
+      setAuthModalOpen(true);
+    }
   };
 
   // Data Fetching
@@ -136,6 +150,18 @@ export default function Home() {
   useEffect(() => {
     fetchAllData();
   }, [fetchAllData]);
+
+  // Fast Sample Campaign Loader
+  const handleLoadSampleCampaign = async () => {
+    try {
+      const res = await fetch('/api/campaigns/sample', { method: 'POST' });
+      if (res.ok) {
+        fetchAllData();
+      }
+    } catch (err) {
+      console.error('Error loading sample drive:', err);
+    }
+  };
 
   // Modal Handlers
   const handleOpenDonate = (campaign: Campaign) => {
@@ -181,7 +207,29 @@ export default function Home() {
       />
 
       {/* Main Container */}
-      <main className="max-w-7xl mx-auto w-full px-4 sm:px-6 py-8 flex-1">
+      <main className="max-w-7xl mx-auto w-full px-4 sm:px-6 py-6 flex-1">
+        {/* Onboarding Quick Start Navigation Bar */}
+        <QuickStartNavigation
+          currentUser={currentUser}
+          campaignsCount={campaigns.length}
+          donationsCount={donations.length}
+          volunteersCount={volunteers.length}
+          tasksCount={tasks.length}
+          onOpenNewCampaign={() => setNewCampaignModalOpen(true)}
+          onOpenPayment={() => {
+            setSelectedCampaignForAction(null);
+            setPaymentPortalOpen(true);
+          }}
+          onOpenVolunteer={() => {
+            setSelectedCampaignForAction(null);
+            setVolunteerModalOpen(true);
+          }}
+          onOpenNewTask={() => setNewTaskModalOpen(true)}
+          onOpenAuth={() => setAuthModalOpen(true)}
+          onAutoLoginDemo={handleAutoLoginDemo}
+          onOpenTutorial={() => setTutorialModalOpen(true)}
+        />
+
         {/* If NGO Command Portal is active, show the Admin Management Suite */}
         {viewMode === 'admin' ? (
           <div className="animate-fade-in">
@@ -200,69 +248,51 @@ export default function Home() {
         ) : (
           /* Public Donor & Volunteer Portal */
           <>
-            {/* Hero Mission Directive Banner */}
-            <section className="bg-black text-white p-6 sm:p-10 border-2 border-black shadow-[6px_6px_0px_0px_rgba(234,88,12,1)] mb-8 relative overflow-hidden">
-              <div className="absolute top-0 right-0 w-80 h-80 bg-orange-600/10 -mr-20 -mt-20 border border-orange-500/20 rotate-12 pointer-events-none"></div>
-
-              <div className="relative z-10 max-w-3xl space-y-4">
-                <div className="inline-flex items-center gap-2 bg-orange-600 text-white font-mono font-bold text-[10px] uppercase px-2.5 py-1 tracking-widest border border-white">
-                  <ShieldAlert className="w-3.5 h-3.5" />
-                  National Emergency & Community Response Portal
+            {/* Clean & Simplified Mission Header */}
+            <div className="bg-white border-2 border-black p-6 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] mb-8 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
+              <div className="space-y-1.5 max-w-2xl">
+                <div className="inline-flex items-center gap-1.5 text-xs font-mono font-bold text-orange-600 uppercase">
+                  <span className="w-2 h-2 bg-orange-600"></span>
+                  Donation Drive & Volunteer Coordination System
                 </div>
-
-                <h1 className="text-3xl sm:text-5xl font-black uppercase tracking-tighter leading-tight text-white">
-                  Coordinate Relief. <br />
-                  <span className="text-orange-500">Mobilize Volunteers.</span> Track Every Dollar.
+                <h1 className="text-2xl sm:text-3xl font-black uppercase tracking-tight text-black">
+                  Centralized Relief Operations Dashboard
                 </h1>
-
-                <p className="text-xs sm:text-sm text-neutral-300 font-mono leading-relaxed">
-                  Replacing scattered spreadsheets and chat groups with a real-time command dashboard. 
-                  Track critical donation targets, dispatch on-ground volunteer teams, and guarantee 100% financial transparency.
+                <p className="text-xs sm:text-sm text-neutral-600 font-mono leading-relaxed">
+                  Coordinate emergency drives, mobilize volunteer corps, track financial goals, and monitor live task completion.
                 </p>
-
-                <div className="pt-2 flex flex-wrap gap-3">
-                  <button
-                    onClick={() => {
-                      setSelectedCampaignForAction(null);
-                      setPaymentPortalOpen(true);
-                    }}
-                    className="bg-orange-600 hover:bg-orange-700 text-white font-mono font-black text-xs uppercase px-5 py-3 border-2 border-white shadow-[3px_3px_0px_0px_rgba(255,255,255,1)] hover:shadow-none hover:translate-x-[1px] hover:translate-y-[1px] transition-all flex items-center gap-2"
-                  >
-                    <CreditCard className="w-4 h-4" />
-                    <span>Open Payment Portal</span>
-                  </button>
-
-                  <button
-                    onClick={() => {
-                      setSelectedCampaignForAction(null);
-                      setVolunteerModalOpen(true);
-                    }}
-                    className="bg-white hover:bg-neutral-100 text-black font-mono font-black text-xs uppercase px-5 py-3 border-2 border-white shadow-[3px_3px_0px_0px_rgba(234,88,12,1)] hover:shadow-none hover:translate-x-[1px] hover:translate-y-[1px] transition-all flex items-center gap-2"
-                  >
-                    <Users className="w-4 h-4 text-orange-600" />
-                    <span>Enlist as Volunteer</span>
-                  </button>
-
-                  <button
-                    onClick={() => setTutorialModalOpen(true)}
-                    className="bg-transparent hover:bg-neutral-900 text-neutral-300 hover:text-white font-mono font-bold text-xs uppercase px-4 py-3 border-2 border-neutral-700 flex items-center gap-2"
-                  >
-                    <BookOpen className="w-4 h-4 text-orange-500" />
-                    <span>Interactive Tutorial</span>
-                  </button>
-                </div>
               </div>
-            </section>
 
-            {/* Real-time KPI Stats Banner */}
+              <div className="flex flex-wrap items-center gap-2.5 shrink-0">
+                <button
+                  onClick={() => setNewCampaignModalOpen(true)}
+                  className="bg-black hover:bg-neutral-800 text-white font-mono font-bold text-xs uppercase px-4 py-2.5 border-2 border-black shadow-[2px_2px_0px_0px_rgba(234,88,12,1)] flex items-center gap-1.5"
+                >
+                  <Plus className="w-4 h-4 text-orange-500" />
+                  <span>Launch Drive</span>
+                </button>
+                <button
+                  onClick={() => {
+                    setSelectedCampaignForAction(null);
+                    setPaymentPortalOpen(true);
+                  }}
+                  className="bg-orange-600 hover:bg-orange-700 text-white font-mono font-bold text-xs uppercase px-4 py-2.5 border-2 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] flex items-center gap-1.5"
+                >
+                  <CreditCard className="w-4 h-4" />
+                  <span>Spend / Donate</span>
+                </button>
+              </div>
+            </div>
+
+            {/* KPI Stats Banner */}
             <StatsBanner stats={stats} loading={loading} />
 
-            {/* Tab Navigation Controls - Sharp Tabs */}
+            {/* Tab Navigation Controls */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 border-b-2 border-black">
               <div className="flex overflow-x-auto gap-2 -mb-[2px] pb-1 sm:pb-0">
                 <button
                   onClick={() => setActiveTab('drives')}
-                  className={`flex items-center gap-2 px-5 py-3 font-mono font-black text-xs uppercase tracking-wider transition-all whitespace-nowrap border-2 ${
+                  className={`flex items-center gap-2 px-5 py-2.5 font-mono font-black text-xs uppercase tracking-wider transition-all whitespace-nowrap border-2 ${
                     activeTab === 'drives'
                       ? 'bg-orange-600 text-white border-black shadow-[3px_3px_0px_0px_rgba(0,0,0,1)]'
                       : 'bg-white text-black border-transparent hover:border-black hover:bg-neutral-100'
@@ -274,19 +304,19 @@ export default function Home() {
 
                 <button
                   onClick={() => setActiveTab('tasks')}
-                  className={`flex items-center gap-2 px-5 py-3 font-mono font-black text-xs uppercase tracking-wider transition-all whitespace-nowrap border-2 ${
+                  className={`flex items-center gap-2 px-5 py-2.5 font-mono font-black text-xs uppercase tracking-wider transition-all whitespace-nowrap border-2 ${
                     activeTab === 'tasks'
                       ? 'bg-black text-white border-black shadow-[3px_3px_0px_0px_rgba(234,88,12,1)]'
                       : 'bg-white text-black border-transparent hover:border-black hover:bg-neutral-100'
                   }`}
                 >
                   <CheckSquare className="w-4 h-4" />
-                  Volunteer Kanban ({tasks.length})
+                  Task Kanban ({tasks.length})
                 </button>
 
                 <button
                   onClick={() => setActiveTab('volunteers')}
-                  className={`flex items-center gap-2 px-5 py-3 font-mono font-black text-xs uppercase tracking-wider transition-all whitespace-nowrap border-2 ${
+                  className={`flex items-center gap-2 px-5 py-2.5 font-mono font-black text-xs uppercase tracking-wider transition-all whitespace-nowrap border-2 ${
                     activeTab === 'volunteers'
                       ? 'bg-black text-white border-black shadow-[3px_3px_0px_0px_rgba(234,88,12,1)]'
                       : 'bg-white text-black border-transparent hover:border-black hover:bg-neutral-100'
@@ -298,14 +328,14 @@ export default function Home() {
 
                 <button
                   onClick={() => setActiveTab('ledger')}
-                  className={`flex items-center gap-2 px-5 py-3 font-mono font-black text-xs uppercase tracking-wider transition-all whitespace-nowrap border-2 ${
+                  className={`flex items-center gap-2 px-5 py-2.5 font-mono font-black text-xs uppercase tracking-wider transition-all whitespace-nowrap border-2 ${
                     activeTab === 'ledger'
                       ? 'bg-black text-white border-black shadow-[3px_3px_0px_0px_rgba(234,88,12,1)]'
                       : 'bg-white text-black border-transparent hover:border-black hover:bg-neutral-100'
                   }`}
                 >
                   <FileText className="w-4 h-4" />
-                  Public Ledger ({donations.length})
+                  Transparency Ledger ({donations.length})
                 </button>
               </div>
 
@@ -320,13 +350,12 @@ export default function Home() {
               </div>
             </div>
 
-            {/* Tab 1: Donation Drives & Campaigns View */}
+            {/* Tab 1: Drives */}
             {activeTab === 'drives' && (
               <div className="space-y-6 animate-fade-in">
                 {/* Filter & Search Bar */}
-                <div className="bg-white border-2 border-black p-4 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4">
-                  {/* Category Pills */}
-                  <div className="flex flex-wrap items-center gap-2">
+                <div className="bg-white border-2 border-black p-3.5 shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
+                  <div className="flex flex-wrap items-center gap-1.5">
                     <span className="text-xs font-mono font-bold uppercase text-neutral-500 mr-1 flex items-center gap-1">
                       <Filter className="w-3.5 h-3.5 text-black" /> Filter:
                     </span>
@@ -334,10 +363,10 @@ export default function Home() {
                       <button
                         key={cat}
                         onClick={() => setSelectedCategory(cat)}
-                        className={`px-3 py-1.5 text-xs font-mono font-bold uppercase border-2 transition-all ${
+                        className={`px-2.5 py-1 text-xs font-mono font-bold uppercase border transition-all ${
                           selectedCategory === cat
-                            ? 'bg-black text-white border-black shadow-[2px_2px_0px_0px_rgba(234,88,12,1)]'
-                            : 'bg-neutral-50 text-neutral-800 border-neutral-300 hover:border-black hover:bg-neutral-100'
+                            ? 'bg-black text-white border-black'
+                            : 'bg-neutral-50 text-neutral-800 border-neutral-300 hover:border-black'
                         }`}
                       >
                         {cat}
@@ -345,38 +374,48 @@ export default function Home() {
                     ))}
                   </div>
 
-                  {/* Search Bar */}
-                  <div className="relative w-full md:w-80">
-                    <Search className="w-4 h-4 absolute left-3 top-3 text-neutral-400" />
+                  <div className="relative w-full md:w-72">
+                    <Search className="w-3.5 h-3.5 absolute left-3 top-2.5 text-neutral-400" />
                     <input
                       type="text"
                       value={searchQuery}
                       onChange={(e) => setSearchQuery(e.target.value)}
-                      placeholder="Search drive, location, keywords..."
-                      className="w-full bg-white border-2 border-black pl-9 pr-3 py-2 text-xs font-mono text-black focus:outline-hidden focus:ring-2 focus:ring-orange-600"
+                      placeholder="Search active campaigns..."
+                      className="w-full bg-white border border-black pl-8 pr-3 py-1.5 text-xs font-mono text-black focus:outline-hidden focus:ring-1 focus:ring-orange-600"
                     />
                   </div>
                 </div>
 
-                {/* Campaign Cards Grid */}
+                {/* Empty State or Campaign Cards Grid */}
                 {filteredCampaigns.length === 0 ? (
-                  <div className="bg-white border-2 border-black p-12 text-center shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
-                    <Compass className="w-12 h-12 text-neutral-300 mx-auto mb-3" />
-                    <h3 className="text-base font-black text-black uppercase font-mono">
-                      No active campaigns match your criteria
-                    </h3>
-                    <p className="text-xs text-neutral-500 font-mono mt-1 mb-4">
-                      Try adjusting the filter or search keywords.
-                    </p>
-                    <button
-                      onClick={() => {
-                        setSelectedCategory('All');
-                        setSearchQuery('');
-                      }}
-                      className="bg-black text-white font-mono font-bold text-xs uppercase px-4 py-2 border-2 border-black shadow-[2px_2px_0px_0px_rgba(234,88,12,1)]"
-                    >
-                      Reset All Filters
-                    </button>
+                  <div className="bg-white border-2 border-black p-10 text-center shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] space-y-4 max-w-xl mx-auto">
+                    <div className="w-14 h-14 bg-orange-100 border-2 border-black flex items-center justify-center mx-auto text-orange-600">
+                      <Compass className="w-7 h-7" />
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-black text-black uppercase font-mono">
+                        No Active Donation Drives
+                      </h3>
+                      <p className="text-xs text-neutral-600 font-mono mt-1">
+                        The operational database is clean. Launch your organization&apos;s first campaign or load a pre-configured sample drive to test the system.
+                      </p>
+                    </div>
+                    <div className="flex flex-col sm:flex-row items-center justify-center gap-2 pt-2">
+                      <button
+                        onClick={() => setNewCampaignModalOpen(true)}
+                        className="w-full sm:w-auto bg-orange-600 hover:bg-orange-700 text-white font-mono font-bold text-xs uppercase px-5 py-2.5 border-2 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] flex items-center justify-center gap-1.5"
+                      >
+                        <Plus className="w-4 h-4" />
+                        <span>Launch First Drive</span>
+                      </button>
+                      <button
+                        onClick={handleLoadSampleCampaign}
+                        className="w-full sm:w-auto bg-black hover:bg-neutral-800 text-white font-mono font-bold text-xs uppercase px-5 py-2.5 border-2 border-black shadow-[2px_2px_0px_0px_rgba(234,88,12,1)] flex items-center justify-center gap-1.5"
+                      >
+                        <Sparkles className="w-4 h-4 text-orange-500" />
+                        <span>Load Sample Relief Drive</span>
+                      </button>
+                    </div>
                   </div>
                 ) : (
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -393,7 +432,7 @@ export default function Home() {
               </div>
             )}
 
-            {/* Tab 2: Volunteer Task Kanban */}
+            {/* Tab 2: Kanban */}
             {activeTab === 'tasks' && (
               <div className="animate-fade-in">
                 <TaskKanban
@@ -404,7 +443,7 @@ export default function Home() {
               </div>
             )}
 
-            {/* Tab 3: Volunteer Directory */}
+            {/* Tab 3: Volunteers */}
             {activeTab === 'volunteers' && (
               <div className="animate-fade-in">
                 <VolunteerDirectory
@@ -417,7 +456,7 @@ export default function Home() {
               </div>
             )}
 
-            {/* Tab 4: Public Transparency Ledger */}
+            {/* Tab 4: Ledger */}
             {activeTab === 'ledger' && (
               <div className="animate-fade-in">
                 <TransparencyLedger donations={donations} />
@@ -427,30 +466,35 @@ export default function Home() {
         )}
       </main>
 
-      {/* Footer - Sharp Industrial Style */}
+      {/* Footer - Sharp Minimalist */}
       <footer className="border-t-2 border-black bg-white mt-12">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs font-mono">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-5 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs font-mono">
           <div className="flex items-center gap-2">
-            <div className="w-4 h-4 bg-orange-600 border border-black"></div>
+            <div className="w-3.5 h-3.5 bg-orange-600 border border-black"></div>
             <span className="font-bold text-black uppercase tracking-wider">
-              RELIEFGRID // OPEN NGO DISPATCH
+              RELIEFGRID // COMMUNITY RESPONSE SYSTEM
             </span>
           </div>
 
           <div className="flex items-center gap-4 text-neutral-500 text-center sm:text-right">
             <button
               onClick={() => setTutorialModalOpen(true)}
-              className="text-black hover:text-orange-600 underline font-bold"
+              className="text-black hover:text-orange-600 underline font-bold cursor-pointer"
             >
               How It Works
             </button>
             <span>•</span>
-            <span>Connected to Supabase PostgreSQL</span>
+            <button
+              onClick={handleAutoLoginDemo}
+              className="text-orange-600 hover:text-black font-bold cursor-pointer"
+            >
+              Demo Account (demo@reliefgrid.org)
+            </button>
           </div>
         </div>
       </footer>
 
-      {/* MODALS */}
+      {/* Modals */}
       <DummyPaymentPortal
         campaigns={campaigns}
         selectedCampaign={selectedCampaignForAction}

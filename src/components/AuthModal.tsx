@@ -120,30 +120,30 @@ export default function AuthModal({ isOpen, onClose, onAuthSuccess }: AuthModalP
 
         {/* Quick Demo Switcher for fast evaluation */}
         <div className="bg-orange-50 border-b-2 border-black p-3 space-y-2">
-          <div className="flex items-center justify-between text-[10px] font-mono font-bold uppercase text-orange-800">
-            <span>⚡ Fast Evaluator 1-Click Access:</span>
+          <div className="flex items-center justify-between text-[11px] font-mono font-bold uppercase text-orange-900">
+            <span>⚡ Ready-to-Use Demo Account:</span>
           </div>
-          <div className="grid grid-cols-3 gap-1.5">
+          <button
+            type="button"
+            onClick={() => handleQuickLogin('demo@reliefgrid.org', 'demo123')}
+            className="w-full bg-orange-600 hover:bg-orange-700 text-white font-mono font-black text-xs uppercase py-2 px-2 border-2 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] text-center flex items-center justify-center gap-1.5"
+          >
+            <span>👉 Log In as Demo Account (Full Access to Add & Spend)</span>
+          </button>
+          <div className="grid grid-cols-2 gap-1.5 pt-1">
             <button
               type="button"
               onClick={() => handleQuickLogin('admin@reliefgrid.org', 'admin123')}
-              className="bg-black hover:bg-neutral-800 text-white font-mono font-bold text-[9px] uppercase py-1.5 px-1 border border-black shadow-[1px_1px_0px_0px_rgba(0,0,0,1)] text-center"
+              className="bg-black hover:bg-neutral-800 text-white font-mono font-bold text-[10px] uppercase py-1.5 px-1 border border-black shadow-[1px_1px_0px_0px_rgba(0,0,0,1)] text-center"
             >
-              NGO Admin
+              Director Admin
             </button>
             <button
               type="button"
-              onClick={() => handleQuickLogin('volunteer@relief.org', 'volunteer123')}
-              className="bg-orange-600 hover:bg-orange-700 text-white font-mono font-bold text-[9px] uppercase py-1.5 px-1 border border-black shadow-[1px_1px_0px_0px_rgba(0,0,0,1)] text-center"
+              onClick={() => handleQuickLogin('demo@reliefgrid.org', 'demo123')}
+              className="bg-white hover:bg-neutral-100 text-black font-mono font-bold text-[10px] uppercase py-1.5 px-1 border border-black shadow-[1px_1px_0px_0px_rgba(0,0,0,1)] text-center"
             >
-              Volunteer
-            </button>
-            <button
-              type="button"
-              onClick={() => handleQuickLogin('donor@gmail.com', 'donor123')}
-              className="bg-white hover:bg-neutral-100 text-black font-mono font-bold text-[9px] uppercase py-1.5 px-1 border border-black shadow-[1px_1px_0px_0px_rgba(0,0,0,1)] text-center"
-            >
-              Donor
+              Test Supporter
             </button>
           </div>
         </div>
