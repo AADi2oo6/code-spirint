@@ -1,3 +1,12 @@
+export interface User {
+  id: number;
+  name: string;
+  email: string;
+  role: 'admin' | 'volunteer' | 'donor';
+  phone?: string;
+  organization?: string;
+}
+
 export interface Campaign {
   id: number;
   title: string;

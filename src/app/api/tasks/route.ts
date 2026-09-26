@@ -97,3 +97,23 @@ export async function PATCH(request: Request) {
     return NextResponse.json({ error: msg }, { status: 500 });
   }
 }
+
+export async function DELETE(request: Request) {
+  try {
+    const { searchParams } = new URL(request.url);
+    const id = searchParams.get('id');
+
+    if (!id) {
+      return NextResponse.json({ error: 'Task ID required' }, { status: 400 });
+    }
+
+    await sql`DELETE FROM tasks WHERE id = ${id};`;
+
+    return NextResponse.json({ success: true, message: 'Task removed successfully' });
+  } catch (error: unknown) {
+    console.error('Error deleting task:', error);
+    const msg = error instanceof Error ? error.message : 'Database error';
+    return NextResponse.json({ error: msg }, { status: 500 });
+  }
+}
+

@@ -101,3 +101,50 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: msg }, { status: 500 });
   }
 }
+
+export async function PATCH(request: Request) {
+  try {
+    const body = await request.json();
+    const { id, status, target_amount, urgency } = body;
+
+    if (!id) {
+      return NextResponse.json({ error: 'Campaign ID required' }, { status: 400 });
+    }
+
+    const updated = await sql`
+      UPDATE campaigns
+      SET
+        status = COALESCE(${status || null}, status),
+        target_amount = CASE WHEN ${target_amount !== undefined} THEN ${target_amount}::numeric ELSE target_amount END,
+        urgency = COALESCE(${urgency || null}, urgency)
+      WHERE id = ${id}
+      RETURNING *;
+    `;
+
+    return NextResponse.json(updated[0]);
+  } catch (error: unknown) {
+    console.error('Error updating campaign:', error);
+    const msg = error instanceof Error ? error.message : 'Database error';
+    return NextResponse.json({ error: msg }, { status: 500 });
+  }
+}
+
+export async function DELETE(request: Request) {
+  try {
+    const { searchParams } = new URL(request.url);
+    const id = searchParams.get('id');
+
+    if (!id) {
+      return NextResponse.json({ error: 'Campaign ID required' }, { status: 400 });
+    }
+
+    await sql`DELETE FROM campaigns WHERE id = ${id};`;
+
+    return NextResponse.json({ success: true, message: 'Campaign deleted successfully' });
+  } catch (error: unknown) {
+    console.error('Error deleting campaign:', error);
+    const msg = error instanceof Error ? error.message : 'Database error';
+    return NextResponse.json({ error: msg }, { status: 500 });
+  }
+}
+
