@@ -923,3 +923,12 @@ npm run dev
 ```
 
 Provide clear setup instructions for MongoDB Atlas and environment variables in README.md.
+
+
+
+PS
+
+Smart donation Drive & Volunteer Coordination Platform
+NGOs and community  organization often coordinate donation drives through spredsheets , message application and manual follow-ups.  This makes it difficult to track donors , volunteers , targets and actual contributuinss.
+
+Build a donation drive and volunteer Cooordination Platform that helps organizers manage drives, donors, volunteers and progress towrd targets
