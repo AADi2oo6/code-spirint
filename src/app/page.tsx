@@ -1,192 +1,389 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { Database, CheckCircle2, AlertCircle, RefreshCw, Server, Zap, ShieldCheck, ArrowRight } from 'lucide-react';
-
-interface DbInfo {
-  database_name: string;
-  db_user: string;
-  pg_version: string;
-  server_time: string;
-}
+import React, { useState, useEffect, useCallback } from 'react';
+import Navbar from '@/components/Navbar';
+import StatsBanner from '@/components/StatsBanner';
+import CampaignCard from '@/components/CampaignCard';
+import DonationModal from '@/components/DonationModal';
+import VolunteerModal from '@/components/VolunteerModal';
+import NewCampaignModal from '@/components/NewCampaignModal';
+import NewTaskModal from '@/components/NewTaskModal';
+import TaskKanban from '@/components/TaskKanban';
+import VolunteerDirectory from '@/components/VolunteerDirectory';
+import TransparencyLedger from '@/components/TransparencyLedger';
+import { Campaign, Volunteer, Task, Donation, PlatformStats } from '@/lib/types';
+import { 
+  Flame, 
+  Users, 
+  CheckSquare, 
+  FileText, 
+  Plus, 
+  Search, 
+  Filter, 
+  ArrowRight, 
+  ShieldAlert, 
+  Compass,
+  Download,
+  RefreshCw
+} from 'lucide-react';
 
 export default function Home() {
-  const [loading, setLoading] = useState(true);
-  const [dbData, setDbData] = useState<{ status: string; latencyMs?: number; info?: DbInfo; error?: string } | null>(null);
+  // Navigation & View Mode State
+  const [viewMode, setViewMode] = useState<'public' | 'admin'>('public');
+  const [activeTab, setActiveTab] = useState<'drives' | 'tasks' | 'volunteers' | 'ledger'>('drives');
 
-  const checkConnection = async () => {
-    setLoading(true);
+  // Data States
+  const [campaigns, setCampaigns] = useState<Campaign[]>([]);
+  const [volunteers, setVolunteers] = useState<Volunteer[]>([]);
+  const [tasks, setTasks] = useState<Task[]>([]);
+  const [donations, setDonations] = useState<Donation[]>([]);
+  const [stats, setStats] = useState<PlatformStats | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  // Filters
+  const [selectedCategory, setSelectedCategory] = useState('All');
+  const [searchQuery, setSearchQuery] = useState('');
+
+  // Modals
+  const [donateModalOpen, setDonateModalOpen] = useState(false);
+  const [volunteerModalOpen, setVolunteerModalOpen] = useState(false);
+  const [newCampaignModalOpen, setNewCampaignModalOpen] = useState(false);
+  const [newTaskModalOpen, setNewTaskModalOpen] = useState(false);
+  const [selectedCampaignForAction, setSelectedCampaignForAction] = useState<Campaign | null>(null);
+
+  // Data Fetching
+  const fetchAllData = useCallback(async () => {
     try {
-      const res = await fetch('/api/db-check');
-      const data = await res.json();
-      setDbData(data);
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Failed to reach API route';
-      setDbData({ status: 'error', error: msg });
+      setLoading(true);
+      const [campRes, volRes, taskRes, donRes, statsRes] = await Promise.all([
+        fetch('/api/campaigns'),
+        fetch('/api/volunteers'),
+        fetch('/api/tasks'),
+        fetch('/api/donations'),
+        fetch('/api/stats'),
+      ]);
+
+      const [campData, volData, taskData, donData, statsData] = await Promise.all([
+        campRes.json(),
+        volRes.json(),
+        taskRes.json(),
+        donRes.json(),
+        statsRes.json(),
+      ]);
+
+      if (Array.isArray(campData)) setCampaigns(campData);
+      if (Array.isArray(volData)) setVolunteers(volData);
+      if (Array.isArray(taskData)) setTasks(taskData);
+      if (Array.isArray(donData)) setDonations(donData);
+      if (statsData?.stats) setStats(statsData.stats);
+    } catch (err) {
+      console.error('Failed to load application data:', err);
     } finally {
       setLoading(false);
     }
-  };
-
-  useEffect(() => {
-    checkConnection();
   }, []);
 
+  useEffect(() => {
+    fetchAllData();
+  }, [fetchAllData]);
+
+  // Modal Handlers
+  const handleOpenDonate = (campaign: Campaign) => {
+    setSelectedCampaignForAction(campaign);
+    setDonateModalOpen(true);
+  };
+
+  const handleOpenVolunteer = (campaign: Campaign) => {
+    setSelectedCampaignForAction(campaign);
+    setVolunteerModalOpen(true);
+  };
+
+  // Category filters
+  const categories = ['All', 'Disaster Relief', 'Food & Hunger', 'Winter Relief', 'Education'];
+
+  const filteredCampaigns = campaigns.filter((c) => {
+    const matchesCategory = selectedCategory === 'All' || c.category === selectedCategory;
+    const matchesSearch =
+      c.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      c.location.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      c.description.toLowerCase().includes(searchQuery.toLowerCase());
+    return matchesCategory && matchesSearch;
+  });
+
   return (
-    <main className="min-h-screen bg-slate-950 text-slate-50 flex flex-col justify-between selection:bg-emerald-500 selection:text-black">
-      {/* Top Navbar */}
-      <header className="border-b border-slate-800/80 bg-slate-900/50 backdrop-blur-md px-6 py-4 flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-lg bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400">
-            <Zap className="w-5 h-5 fill-emerald-400/20" />
-          </div>
-          <div>
-            <h1 className="text-base font-semibold text-white tracking-tight">CodeSprint</h1>
-            <p className="text-xs text-slate-400">Next.js + Supabase Postgres Full Stack</p>
-          </div>
-        </div>
+    <div className="min-h-screen bg-[#fafafa] text-black flex flex-col font-sans selection:bg-orange-600 selection:text-white">
+      {/* Top Brutalist Navigation */}
+      <Navbar
+        viewMode={viewMode}
+        setViewMode={setViewMode}
+        onOpenNewCampaign={() => setNewCampaignModalOpen(true)}
+        onOpenNewTask={() => setNewTaskModalOpen(true)}
+        activeCampaignsCount={campaigns.length}
+      />
 
-        <div className="flex items-center gap-3">
-          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-            Vercel Ready
-          </span>
-        </div>
-      </header>
+      {/* Main Container */}
+      <main className="max-w-7xl mx-auto w-full px-4 sm:px-6 py-8 flex-1">
+        {/* Hero Mission Directive Banner */}
+        <section className="bg-black text-white p-6 sm:p-10 border-2 border-black shadow-[6px_6px_0px_0px_rgba(234,88,12,1)] mb-8 relative overflow-hidden">
+          <div className="absolute top-0 right-0 w-80 h-80 bg-orange-600/10 -mr-20 -mt-20 border border-orange-500/20 rotate-12 pointer-events-none"></div>
 
-      {/* Main Content */}
-      <div className="max-w-4xl mx-auto w-full px-6 py-12 flex-1 flex flex-col justify-center">
-        {/* Hero Section */}
-        <div className="text-center space-y-3 mb-10">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-medium bg-slate-800 text-slate-300 border border-slate-700">
-            <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
-            Supabase Session Pooler Active
-          </div>
-          <h2 className="text-4xl md:text-5xl font-extrabold tracking-tight text-white">
-            Full-Stack Project Setup <br />
-            <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-teal-300">
-              Live & Connected
-            </span>
-          </h2>
-          <p className="text-slate-400 max-w-xl mx-auto text-sm md:text-base">
-            Your Next.js React frontend, serverless API routes, and Supabase PostgreSQL pooler are configured and ready for rapid sprint development.
-          </p>
-        </div>
-
-        {/* Database Status Card */}
-        <div className="bg-slate-900/90 border border-slate-800 rounded-2xl p-6 md:p-8 shadow-2xl backdrop-blur-xl">
-          <div className="flex flex-col md:flex-row items-start md:items-center justify-between pb-6 border-b border-slate-800 gap-4">
-            <div className="flex items-center gap-4">
-              <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${
-                dbData?.status === 'connected'
-                  ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/30'
-                  : 'bg-rose-500/10 text-rose-400 border border-rose-500/30'
-              }`}>
-                <Database className="w-6 h-6" />
-              </div>
-              <div>
-                <h3 className="text-lg font-semibold text-white flex items-center gap-2">
-                  Database Connection Status
-                  {loading && <RefreshCw className="w-4 h-4 animate-spin text-slate-400" />}
-                </h3>
-                <p className="text-xs text-slate-400">
-                  Host: <code className="text-emerald-400">aws-0-ap-southeast-1.pooler.supabase.com:5432</code>
-                </p>
-              </div>
+          <div className="relative z-10 max-w-3xl space-y-4">
+            <div className="inline-flex items-center gap-2 bg-orange-600 text-white font-mono font-bold text-[10px] uppercase px-2.5 py-1 tracking-widest border border-white">
+              <ShieldAlert className="w-3.5 h-3.5" />
+              National Emergency & Community Response Portal
             </div>
 
-            <div className="flex items-center gap-3">
-              {dbData?.status === 'connected' ? (
-                <div className="flex items-center gap-2 bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 px-3 py-1.5 rounded-lg text-xs font-medium">
-                  <CheckCircle2 className="w-4 h-4" />
-                  Connected ({dbData.latencyMs}ms)
-                </div>
-              ) : (
-                <div className="flex items-center gap-2 bg-rose-500/10 text-rose-400 border border-rose-500/30 px-3 py-1.5 rounded-lg text-xs font-medium">
-                  <AlertCircle className="w-4 h-4" />
-                  {loading ? 'Connecting...' : 'Disconnected'}
-                </div>
-              )}
+            <h1 className="text-3xl sm:text-5xl font-black uppercase tracking-tighter leading-tight text-white">
+              Coordinate Relief. <br />
+              <span className="text-orange-500">Mobilize Volunteers.</span> Track Every Dollar.
+            </h1>
+
+            <p className="text-xs sm:text-sm text-neutral-300 font-mono leading-relaxed">
+              Replacing scattered spreadsheets and chat groups with a real-time command dashboard. 
+              Track critical donation targets, dispatch on-ground volunteer teams, and guarantee 100% financial transparency.
+            </p>
+
+            <div className="pt-2 flex flex-wrap gap-3">
               <button
-                onClick={checkConnection}
-                disabled={loading}
-                className="p-2 text-slate-400 hover:text-white bg-slate-800 hover:bg-slate-700 rounded-lg transition-colors border border-slate-700"
-                title="Test Connection Again"
+                onClick={() => {
+                  if (campaigns.length > 0) handleOpenDonate(campaigns[0]);
+                }}
+                className="bg-orange-600 hover:bg-orange-700 text-white font-mono font-black text-xs uppercase px-5 py-3 border-2 border-white shadow-[3px_3px_0px_0px_rgba(255,255,255,1)] hover:shadow-none hover:translate-x-[1px] hover:translate-y-[1px] transition-all flex items-center gap-2"
               >
-                <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+                <span>Make Immediate Contribution</span>
+                <ArrowRight className="w-4 h-4" />
+              </button>
+
+              <button
+                onClick={() => {
+                  setSelectedCampaignForAction(null);
+                  setVolunteerModalOpen(true);
+                }}
+                className="bg-white hover:bg-neutral-100 text-black font-mono font-black text-xs uppercase px-5 py-3 border-2 border-white shadow-[3px_3px_0px_0px_rgba(234,88,12,1)] hover:shadow-none hover:translate-x-[1px] hover:translate-y-[1px] transition-all flex items-center gap-2"
+              >
+                <Users className="w-4 h-4 text-orange-600" />
+                <span>Enlist as Volunteer</span>
               </button>
             </div>
           </div>
+        </section>
 
-          {/* Database Details Grid */}
-          {dbData?.status === 'connected' && dbData.info ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 pt-6">
-              <div className="bg-slate-950/60 p-4 rounded-xl border border-slate-800/80">
-                <span className="text-xs font-medium text-slate-400 block mb-1">Database Name</span>
-                <span className="text-sm font-semibold text-slate-200">{dbData.info.database_name}</span>
-              </div>
-              <div className="bg-slate-950/60 p-4 rounded-xl border border-slate-800/80">
-                <span className="text-xs font-medium text-slate-400 block mb-1">User</span>
-                <span className="text-sm font-semibold text-slate-200">{dbData.info.db_user}</span>
-              </div>
-              <div className="bg-slate-950/60 p-4 rounded-xl border border-slate-800/80">
-                <span className="text-xs font-medium text-slate-400 block mb-1">Round-trip Latency</span>
-                <span className="text-sm font-semibold text-emerald-400">{dbData.latencyMs} ms</span>
-              </div>
-              <div className="sm:col-span-2 md:col-span-3 bg-slate-950/60 p-4 rounded-xl border border-slate-800/80">
-                <span className="text-xs font-medium text-slate-400 block mb-1">Engine Version</span>
-                <span className="text-xs font-mono text-slate-300 break-all">{dbData.info.pg_version}</span>
-              </div>
-            </div>
-          ) : (
-            <div className="pt-6">
-              {dbData?.error && (
-                <div className="p-4 rounded-xl bg-rose-950/30 border border-rose-900/50 text-rose-300 text-xs font-mono">
-                  {dbData.error}
-                </div>
-              )}
-            </div>
-          )}
+        {/* Real-time KPI Stats Banner */}
+        <StatsBanner stats={stats} loading={loading} />
+
+        {/* Tab Navigation Controls - Sharp Tabs */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 border-b-2 border-black">
+          <div className="flex overflow-x-auto gap-2 -mb-[2px] pb-1 sm:pb-0">
+            <button
+              onClick={() => setActiveTab('drives')}
+              className={`flex items-center gap-2 px-5 py-3 font-mono font-black text-xs uppercase tracking-wider transition-all whitespace-nowrap border-2 ${
+                activeTab === 'drives'
+                  ? 'bg-orange-600 text-white border-black shadow-[3px_3px_0px_0px_rgba(0,0,0,1)]'
+                  : 'bg-white text-black border-transparent hover:border-black hover:bg-neutral-100'
+              }`}
+            >
+              <Flame className="w-4 h-4" />
+              Active Drives ({campaigns.length})
+            </button>
+
+            <button
+              onClick={() => setActiveTab('tasks')}
+              className={`flex items-center gap-2 px-5 py-3 font-mono font-black text-xs uppercase tracking-wider transition-all whitespace-nowrap border-2 ${
+                activeTab === 'tasks'
+                  ? 'bg-black text-white border-black shadow-[3px_3px_0px_0px_rgba(234,88,12,1)]'
+                  : 'bg-white text-black border-transparent hover:border-black hover:bg-neutral-100'
+              }`}
+            >
+              <CheckSquare className="w-4 h-4" />
+              Volunteer Kanban ({tasks.length})
+            </button>
+
+            <button
+              onClick={() => setActiveTab('volunteers')}
+              className={`flex items-center gap-2 px-5 py-3 font-mono font-black text-xs uppercase tracking-wider transition-all whitespace-nowrap border-2 ${
+                activeTab === 'volunteers'
+                  ? 'bg-black text-white border-black shadow-[3px_3px_0px_0px_rgba(234,88,12,1)]'
+                  : 'bg-white text-black border-transparent hover:border-black hover:bg-neutral-100'
+              }`}
+            >
+              <Users className="w-4 h-4" />
+              Volunteer Corps ({volunteers.length})
+            </button>
+
+            <button
+              onClick={() => setActiveTab('ledger')}
+              className={`flex items-center gap-2 px-5 py-3 font-mono font-black text-xs uppercase tracking-wider transition-all whitespace-nowrap border-2 ${
+                activeTab === 'ledger'
+                  ? 'bg-black text-white border-black shadow-[3px_3px_0px_0px_rgba(234,88,12,1)]'
+                  : 'bg-white text-black border-transparent hover:border-black hover:bg-neutral-100'
+              }`}
+            >
+              <FileText className="w-4 h-4" />
+              Public Ledger ({donations.length})
+            </button>
+          </div>
+
+          <div className="flex items-center gap-2 self-end sm:self-auto mb-2 sm:mb-0">
+            <button
+              onClick={fetchAllData}
+              title="Refresh live data from Supabase"
+              className="p-2 border-2 border-black bg-white hover:bg-neutral-100 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] transition-transform active:translate-x-[1px] active:translate-y-[1px]"
+            >
+              <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin text-orange-600' : 'text-black'}`} />
+            </button>
+          </div>
         </div>
 
-        {/* Quick Speed-Run Deployment Guide */}
-        <div className="mt-8 grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="bg-slate-900/60 border border-slate-800/80 rounded-xl p-5 hover:border-slate-700 transition">
-            <div className="flex items-center gap-2 text-emerald-400 text-sm font-semibold mb-2">
-              <span className="w-5 h-5 rounded-full bg-emerald-500/20 flex items-center justify-center text-xs">1</span>
-              Local Dev
+        {/* Tab 1: Donation Drives & Campaigns View */}
+        {activeTab === 'drives' && (
+          <div className="space-y-6 animate-fade-in">
+            {/* Filter & Search Bar */}
+            <div className="bg-white border-2 border-black p-4 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4">
+              {/* Category Pills */}
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="text-xs font-mono font-bold uppercase text-neutral-500 mr-1 flex items-center gap-1">
+                  <Filter className="w-3.5 h-3.5 text-black" /> Filter:
+                </span>
+                {categories.map((cat) => (
+                  <button
+                    key={cat}
+                    onClick={() => setSelectedCategory(cat)}
+                    className={`px-3 py-1.5 text-xs font-mono font-bold uppercase border-2 transition-all ${
+                      selectedCategory === cat
+                        ? 'bg-black text-white border-black shadow-[2px_2px_0px_0px_rgba(234,88,12,1)]'
+                        : 'bg-neutral-50 text-neutral-800 border-neutral-300 hover:border-black hover:bg-neutral-100'
+                    }`}
+                  >
+                    {cat}
+                  </button>
+                ))}
+              </div>
+
+              {/* Search Bar */}
+              <div className="relative w-full md:w-80">
+                <Search className="w-4 h-4 absolute left-3 top-3 text-neutral-400" />
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Search drive, location, keywords..."
+                  className="w-full bg-white border-2 border-black pl-9 pr-3 py-2 text-xs font-mono text-black focus:outline-hidden focus:ring-2 focus:ring-orange-600"
+                />
+              </div>
             </div>
-            <p className="text-xs text-slate-400">
-              Run <code className="text-slate-200 bg-slate-800 px-1 py-0.5 rounded">npm run dev</code> to preview on localhost:3000.
-            </p>
+
+            {/* Campaign Cards Grid */}
+            {filteredCampaigns.length === 0 ? (
+              <div className="bg-white border-2 border-black p-12 text-center shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
+                <Compass className="w-12 h-12 text-neutral-300 mx-auto mb-3" />
+                <h3 className="text-base font-black text-black uppercase font-mono">
+                  No active campaigns match your criteria
+                </h3>
+                <p className="text-xs text-neutral-500 font-mono mt-1 mb-4">
+                  Try adjusting the filter or search keywords.
+                </p>
+                <button
+                  onClick={() => {
+                    setSelectedCategory('All');
+                    setSearchQuery('');
+                  }}
+                  className="bg-black text-white font-mono font-bold text-xs uppercase px-4 py-2 border-2 border-black shadow-[2px_2px_0px_0px_rgba(234,88,12,1)]"
+                >
+                  Reset All Filters
+                </button>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {filteredCampaigns.map((camp) => (
+                  <CampaignCard
+                    key={camp.id}
+                    campaign={camp}
+                    onDonate={handleOpenDonate}
+                    onVolunteer={handleOpenVolunteer}
+                  />
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Tab 2: Volunteer Task Kanban */}
+        {activeTab === 'tasks' && (
+          <div className="animate-fade-in">
+            <TaskKanban
+              tasks={tasks}
+              onTaskUpdated={fetchAllData}
+              onOpenNewTask={() => setNewTaskModalOpen(true)}
+            />
+          </div>
+        )}
+
+        {/* Tab 3: Volunteer Directory */}
+        {activeTab === 'volunteers' && (
+          <div className="animate-fade-in">
+            <VolunteerDirectory
+              volunteers={volunteers}
+              onOpenVolunteerModal={() => {
+                setSelectedCampaignForAction(null);
+                setVolunteerModalOpen(true);
+              }}
+            />
+          </div>
+        )}
+
+        {/* Tab 4: Public Transparency Ledger */}
+        {activeTab === 'ledger' && (
+          <div className="animate-fade-in">
+            <TransparencyLedger donations={donations} />
+          </div>
+        )}
+      </main>
+
+      {/* Footer - Sharp Industrial Style */}
+      <footer className="border-t-2 border-black bg-white mt-12">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs font-mono">
+          <div className="flex items-center gap-2">
+            <div className="w-4 h-4 bg-orange-600 border border-black"></div>
+            <span className="font-bold text-black uppercase tracking-wider">
+              RELIEFGRID // OPEN NGO DISPATCH
+            </span>
           </div>
 
-          <div className="bg-slate-900/60 border border-slate-800/80 rounded-xl p-5 hover:border-slate-700 transition">
-            <div className="flex items-center gap-2 text-emerald-400 text-sm font-semibold mb-2">
-              <span className="w-5 h-5 rounded-full bg-emerald-500/20 flex items-center justify-center text-xs">2</span>
-              Push to GitHub
-            </div>
-            <p className="text-xs text-slate-400">
-              Commit code & push to your GitHub repository.
-            </p>
-          </div>
-
-          <div className="bg-slate-900/60 border border-slate-800/80 rounded-xl p-5 hover:border-slate-700 transition">
-            <div className="flex items-center gap-2 text-emerald-400 text-sm font-semibold mb-2">
-              <span className="w-5 h-5 rounded-full bg-emerald-500/20 flex items-center justify-center text-xs">3</span>
-              Deploy on Vercel
-            </div>
-            <p className="text-xs text-slate-400">
-              Import repo on Vercel and add <code className="text-slate-200 bg-slate-800 px-1 py-0.5 rounded">DATABASE_URL</code> to Environment Variables.
-            </p>
+          <div className="text-neutral-500 text-center sm:text-right">
+            Connected to Supabase PostgreSQL • Real-Time Web Architecture
           </div>
         </div>
-      </div>
-
-      {/* Footer */}
-      <footer className="border-t border-slate-800/60 py-4 text-center text-xs text-slate-500">
-        CodeSprint Fast Deployment Stack • Supabase PostgreSQL • Next.js
       </footer>
-    </main>
+
+      {/* Modals */}
+      <DonationModal
+        campaign={selectedCampaignForAction}
+        isOpen={donateModalOpen}
+        onClose={() => setDonateModalOpen(false)}
+        onDonationSuccess={fetchAllData}
+      />
+
+      <VolunteerModal
+        campaigns={campaigns}
+        selectedCampaign={selectedCampaignForAction}
+        isOpen={volunteerModalOpen}
+        onClose={() => setVolunteerModalOpen(false)}
+        onVolunteerSuccess={fetchAllData}
+      />
+
+      <NewCampaignModal
+        isOpen={newCampaignModalOpen}
+        onClose={() => setNewCampaignModalOpen(false)}
+        onSuccess={fetchAllData}
+      />
+
+      <NewTaskModal
+        campaigns={campaigns}
+        volunteers={volunteers}
+        isOpen={newTaskModalOpen}
+        onClose={() => setNewTaskModalOpen(false)}
+        onSuccess={fetchAllData}
+      />
+    </div>
   );
 }
